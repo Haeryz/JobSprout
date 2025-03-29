@@ -45,6 +45,49 @@ export default {
     }
   },
   
+  // Verify Google ID token and get the user info
+  async verifyGoogleToken(idToken) {
+    try {
+      // Verify the ID token using Firebase Admin SDK
+      const decodedToken = await auth.verifyIdToken(idToken);
+      return decodedToken;
+    } catch (error) {
+      throw error;
+    }
+  },
+  
+  // Create or update a user with Google provider data
+  async createOrUpdateGoogleUser(googleUser) {
+    try {
+      const { uid, email, name, picture } = googleUser;
+      
+      try {
+        // Try to get the existing user
+        const userRecord = await auth.getUser(uid);
+        
+        // User exists, update if needed and return
+        return userRecord;
+      } catch (error) {
+        // User doesn't exist, create a new one
+        if (error.code === 'auth/user-not-found') {
+          const userRecord = await auth.createUser({
+            uid,
+            email,
+            displayName: name,
+            photoURL: picture,
+            emailVerified: true // Google emails are verified
+          });
+          
+          return userRecord;
+        }
+        
+        throw error;
+      }
+    } catch (error) {
+      throw error;
+    }
+  },
+  
   // Send email verification
   async sendEmailVerification(email, password) {
     try {

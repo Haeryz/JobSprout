@@ -120,6 +120,96 @@ export const login = async (req, res, next) => {
   }
 };
 
+export const googleLogin = async (req, res, next) => {
+  try {
+    const { idToken } = req.body;
+    
+    if (!idToken) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Google ID token is required'
+      });
+    }
+    
+    // Verify the Google ID token first
+    const decodedToken = await AuthModel.verifyGoogleToken(idToken);
+    
+    // Extract user information from the decoded token
+    const googleUser = {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      name: decodedToken.name || decodedToken.displayName,
+      picture: decodedToken.picture
+    };
+    
+    // Create or update the user in Firebase Auth
+    const userRecord = await AuthModel.createOrUpdateGoogleUser(googleUser);
+    
+    // Generate a custom Firebase token for the frontend
+    const customToken = await AuthModel.generateCustomToken(userRecord.uid);
+    
+    // Create a JWT token for the backend API
+    const token = jwt.sign(
+      { 
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userRecord.displayName
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+    
+    // Return the user data and tokens
+    res.status(200).json({
+      status: 'success',
+      message: 'Google login successful',
+      data: {
+        user: {
+          uid: userRecord.uid,
+          email: userRecord.email,
+          displayName: userRecord.displayName,
+          emailVerified: userRecord.emailVerified,
+          photoURL: userRecord.photoURL
+        },
+        // For Firebase client authentication
+        customToken,
+        // For our backend API authentication
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
+    
+    // Handle specific Firebase auth errors
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Google token expired. Please try again.'
+      });
+    }
+    
+    if (error.code === 'auth/id-token-revoked') {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Google token has been revoked. Please try again.'
+      });
+    }
+    
+    if (error.code === 'auth/invalid-id-token') {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Invalid Google token. Please try again.'
+      });
+    }
+    
+    // Generic error
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to authenticate with Google.'
+    });
+  }
+};
+
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
