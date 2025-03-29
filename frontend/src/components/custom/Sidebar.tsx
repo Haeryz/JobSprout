@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 import { Button } from "@/components/ui/button"
@@ -28,18 +28,16 @@ import {
   AvatarImage 
 } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import { useAuthStore } from '@/store/useAuthStore'
 
 const Sidebar = () => {
   const location = useLocation()
+  const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
   
-  // Placeholder user data - this would come from your auth state
-  const user = {
-    name: "John Doe",
-    email: "john@example.com",
-    avatarUrl: "" // Empty for now, falls back to initials
-  }
+  // Get user data and logout function from auth store
+  const { user, logout } = useAuthStore()
   
   // Navigation items
   const navItems = [
@@ -77,6 +75,12 @@ const Sidebar = () => {
   // Handle sidebar toggle
   const toggleSidebar = () => {
     setCollapsed(!collapsed)
+  }
+  
+  // Handle logout
+  const handleLogout = () => {
+    logout()
+    navigate('/auth/sign-in')
   }
   
   return (
@@ -147,15 +151,24 @@ const Sidebar = () => {
             >
               <div className={cn("flex items-center", collapsed ? "w-auto" : "w-full")}>
                 <Avatar className="border-2 border-green-500 dark:border-opacity-50">
-                  <AvatarImage src={user.avatarUrl} alt={user.name} />
+                  <AvatarImage 
+                    src={user?.avatarUrl} 
+                    referrerPolicy="no-referrer"
+                    alt={user?.name}
+                    onError={(e) => {
+                      console.log('Avatar image failed to load:', user?.avatarUrl);
+                      // Prevent infinite error loops
+                      e.currentTarget.onerror = null;
+                    }}
+                  />
                   <AvatarFallback className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                    {getInitials(user.name)}
+                    {user?.name ? getInitials(user.name) : 'JS'}
                   </AvatarFallback>
                 </Avatar>
                 {!collapsed && (
                   <div className="ml-3 text-left">
-                    <p className="text-sm font-medium dark:text-gray-200 truncate">{user.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
+                    <p className="text-sm font-medium dark:text-gray-200 truncate">{user?.name || 'Guest'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email || 'Not signed in'}</p>
                   </div>
                 )}
               </div>
@@ -165,7 +178,7 @@ const Sidebar = () => {
             <div className="p-3">
               <div className="flex flex-col space-y-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Signed in as</p>
-                <p className="text-sm font-medium dark:text-gray-200">{user.email}</p>
+                <p className="text-sm font-medium dark:text-gray-200">{user?.email || 'Not signed in'}</p>
               </div>
             </div>
             <Separator className="dark:bg-gray-700" />
@@ -274,7 +287,7 @@ const Sidebar = () => {
                 variant="ghost"
                 className="justify-start py-1.5 px-2 w-full text-red-500 dark:text-red-400
                 hover:bg-red-50 dark:hover:bg-red-900/20"
-                onClick={() => console.log('Sign out')} // To be implemented with actual sign out logic
+                onClick={handleLogout}
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sign out</span>
