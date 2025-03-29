@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { 
   Popover,
@@ -14,10 +14,12 @@ import {
   Check
 } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
+import { Link, useNavigate } from 'react-router-dom'
 
 const Navbar = () => {
   const { theme, setTheme } = useTheme()
   const [isHovering, setIsHovering] = useState(false)
+  const navigate = useNavigate()
   
   const navItems = ['Home', 'Jobs', 'Companies', 'Resources']
 
@@ -27,9 +29,11 @@ const Navbar = () => {
         <div className="flex justify-between h-16 items-center">
           {/* Left: Logo as text */}
           <div className="flex-shrink-0">
-            <div className="font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-b from-[#4ADE80] to-[#22C55E]">
-              JobSprout
-            </div>
+            <Link to="/">
+              <div className="font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-b from-[#4ADE80] to-[#22C55E]">
+                JobSprout
+              </div>
+            </Link>
           </div>
 
           {/* Middle: Navigation Links */}
@@ -115,6 +119,7 @@ const Navbar = () => {
               variant="ghost" 
               className="text-sm font-medium dark:text-gray-300 dark:hover:text-white
               hover:dark:shadow-[0_0_10px_2px_rgba(74,222,128,0.3)] rounded-md"
+              onClick={() => navigate('/auth/sign-in')}
             >
               Sign In
             </Button>
@@ -128,6 +133,7 @@ const Navbar = () => {
               transition-all duration-300"
               onMouseEnter={() => setIsHovering(true)}
               onMouseLeave={() => setIsHovering(false)}
+              onClick={() => navigate('/auth/sign-up')}
             >
               Sign Up
               <ChevronRight className={cn(

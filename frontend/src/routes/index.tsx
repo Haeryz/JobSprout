@@ -3,10 +3,11 @@ import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import PublicLayout from '@/layouts/PublicLayout'
 import ProtectedLayout from '@/layouts/ProtectedLayout'
 import LandingPage from '@/pages/LandingPage'
-import Authentication from '@/pages/Authentication'
 import Home from '@/pages/Home'
 import JobSearch from '@/pages/JobSearch'
 import Profile from '@/pages/Profile'
+import SignIn from '@/pages/SignIn'
+import SignUp from '@/pages/SignUp'
 
 // This function would normally check if the user is authenticated
 // For development, it always returns true
@@ -24,7 +25,7 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   // Later this will redirect unauthenticated users to login
   if (!authenticated) {
     // Uncomment this when ready to implement authentication
-    // return <Navigate to="/auth" replace />
+    // return <Navigate to="/auth/sign-in" replace />
   }
   
   return <>{children}</>
@@ -43,7 +44,20 @@ const routes = [
       },
       {
         path: "auth",
-        element: <Authentication />
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/auth/sign-in" replace />
+          },
+          {
+            path: "sign-in",
+            element: <SignIn />
+          },
+          {
+            path: "sign-up",
+            element: <SignUp />
+          }
+        ]
       }
     ]
   },
