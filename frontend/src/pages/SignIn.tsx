@@ -1,22 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import NeonGlow from '@/components/custom/NeonGlow'
 import { FaGoogle } from 'react-icons/fa'
+import { useAuthStore } from '@/store/useAuthStore'
+import { toast } from 'sonner'
 
 const SignIn = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const navigate = useNavigate()
   
-  const handleSubmit = (e: React.FormEvent) => {
+  // Get auth state and actions from our store
+  const { login, googleLogin, isAuthenticated, isLoading, clearError } = useAuthStore()
+  
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/app/home')
+    }
+  }, [isAuthenticated, navigate])
+  
+  // Clear any previous errors on mount
+  useEffect(() => {
+    clearError()
+  }, [clearError])
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement actual sign in
-    console.log('Sign in with:', email, password)
+    await login(email, password)
   }
 
-  const handleGoogleSignIn = () => {
-    // TODO: Implement Google sign in
-    console.log('Google sign in')
+  const handleGoogleSignIn = async () => {
+    await googleLogin()
   }
 
   return (
@@ -44,6 +60,7 @@ const SignIn = () => {
               variant="outline"
               className="w-full mb-4 flex items-center justify-center gap-2"
               onClick={handleGoogleSignIn}
+              disabled={isLoading}
             >
               <FaGoogle className="h-4 w-4" />
               Sign in with Google
@@ -80,6 +97,7 @@ const SignIn = () => {
                     dark:border-gray-600 dark:bg-gray-900 dark:placeholder:text-gray-500"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
                 
@@ -91,6 +109,7 @@ const SignIn = () => {
                     <button
                       type="button"
                       className="text-sm font-medium text-green-600 hover:text-green-500 dark:text-green-400"
+                      onClick={() => toast.info('Password reset functionality coming soon!')}
                     >
                       Forgot password?
                     </button>
@@ -106,6 +125,7 @@ const SignIn = () => {
                     dark:border-gray-600 dark:bg-gray-900 dark:placeholder:text-gray-500"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
                 
@@ -115,8 +135,9 @@ const SignIn = () => {
                   hover:from-[#22C55E] hover:to-[#22C55E]
                   dark:shadow-[0_0_5px_1px_rgba(74,222,128,0.3)]
                   hover:dark:shadow-[0_0_15px_3px_rgba(74,222,128,0.4)]"
+                  disabled={isLoading}
                 >
-                  Sign in
+                  {isLoading ? 'Signing in...' : 'Sign in'}
                 </Button>
               </div>
             </form>

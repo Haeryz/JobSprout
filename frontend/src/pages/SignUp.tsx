@@ -1,27 +1,39 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import NeonGlow from '@/components/custom/NeonGlow'
 import { FaGoogle } from 'react-icons/fa'
+import { useAuthStore } from '@/store/useAuthStore'
 
 const SignUp = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const navigate = useNavigate()
   
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // TODO: Implement actual sign up
-    if (password !== confirmPassword) {
-      alert('Passwords do not match')
-      return
+  // Get auth state and actions from our store
+  const { signup, googleLogin, isAuthenticated, isLoading, clearError } = useAuthStore()
+  
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/app/home')
     }
-    console.log('Sign up with:', email, password)
+  }, [isAuthenticated, navigate])
+  
+  // Clear any previous errors on mount
+  useEffect(() => {
+    clearError()
+  }, [clearError])
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await signup(email, password, confirmPassword, displayName)
   }
 
-  const handleGoogleSignUp = () => {
-    // TODO: Implement Google sign up
-    console.log('Google sign up')
+  const handleGoogleSignUp = async () => {
+    await googleLogin()
   }
 
   return (
@@ -49,6 +61,7 @@ const SignUp = () => {
               variant="outline"
               className="w-full mb-4 flex items-center justify-center gap-2"
               onClick={handleGoogleSignUp}
+              disabled={isLoading}
             >
               <FaGoogle className="h-4 w-4" />
               Sign up with Google
@@ -70,6 +83,25 @@ const SignUp = () => {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
+                  <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    Name
+                  </label>
+                  <input
+                    id="displayName"
+                    name="displayName"
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Your Name"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm 
+                    placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 
+                    dark:border-gray-600 dark:bg-gray-900 dark:placeholder:text-gray-500"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Email
                   </label>
@@ -85,6 +117,7 @@ const SignUp = () => {
                     dark:border-gray-600 dark:bg-gray-900 dark:placeholder:text-gray-500"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
                 
@@ -103,6 +136,7 @@ const SignUp = () => {
                     dark:border-gray-600 dark:bg-gray-900 dark:placeholder:text-gray-500"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
                 
@@ -121,6 +155,7 @@ const SignUp = () => {
                     dark:border-gray-600 dark:bg-gray-900 dark:placeholder:text-gray-500"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
                 
@@ -130,8 +165,9 @@ const SignUp = () => {
                   hover:from-[#22C55E] hover:to-[#22C55E]
                   dark:shadow-[0_0_5px_1px_rgba(74,222,128,0.3)]
                   hover:dark:shadow-[0_0_15px_3px_rgba(74,222,128,0.4)]"
+                  disabled={isLoading}
                 >
-                  Sign up
+                  {isLoading ? 'Creating account...' : 'Sign up'}
                 </Button>
               </div>
             </form>
