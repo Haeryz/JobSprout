@@ -32,8 +32,9 @@ if (process.env.NODE_ENV !== 'production') {
 // Apply all security middleware
 app.use(securityMiddleware);
 
-// API Routes
-app.use('/api/v1/auth', authRoutes);
+// API Routes - Register routes at BOTH the v1 path and the direct /api/auth path
+app.use('/api/v1/auth', authRoutes); // Original v1 path
+app.use('/api/auth', authRoutes);    // New path for frontend compatibility
 
 // Test route
 app.get('/', (req, res) => {
