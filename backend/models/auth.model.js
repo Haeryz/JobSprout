@@ -1,4 +1,4 @@
-import { auth } from '../config/database.js';
+import { auth, db } from '../config/database.js';
 import { getAuth, sendPasswordResetEmail, sendEmailVerification, signInWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 
@@ -30,8 +30,33 @@ export default {
         disabled: false
       });
       
+      // Also save the user to Firestore
+      await this.saveUserToFirestore(userRecord.uid, {
+        email: userRecord.email,
+        displayName: userRecord.displayName || null,
+        photoURL: userRecord.photoURL || null,
+        emailVerified: userRecord.emailVerified,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        // Add any additional fields you want to store for users
+        role: 'user',
+        isActive: true
+      });
+      
       return userRecord;
     } catch (error) {
+      throw error;
+    }
+  },
+  
+  // Save user data to Firestore
+  async saveUserToFirestore(uid, userData) {
+    try {
+      // Create a user document with the same ID as the Auth UID
+      await db.collection('users').doc(uid).set(userData, { merge: true });
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving user to Firestore:', error);
       throw error;
     }
   },
@@ -65,6 +90,17 @@ export default {
         // Try to get the existing user
         const userRecord = await auth.getUser(uid);
         
+        // Update user in Firestore (even if they exist, keep their data updated)
+        await this.saveUserToFirestore(uid, {
+          email: email,
+          displayName: name,
+          photoURL: picture,
+          emailVerified: true,
+          lastLoginAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          authProvider: 'google'
+        });
+        
         // User exists, update if needed and return
         return userRecord;
       } catch (error) {
@@ -78,6 +114,20 @@ export default {
             emailVerified: true // Google emails are verified
           });
           
+          // Save the new user to Firestore
+          await this.saveUserToFirestore(uid, {
+            email: email,
+            displayName: name,
+            photoURL: picture,
+            emailVerified: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+            authProvider: 'google',
+            role: 'user',
+            isActive: true
+          });
+          
           return userRecord;
         }
         
@@ -85,6 +135,45 @@ export default {
       }
     } catch (error) {
       throw error;
+    }
+  },
+  
+  // Update user login timestamp
+  async updateUserLoginTimestamp(uid) {
+    try {
+      await db.collection('users').doc(uid).update({
+        lastLoginAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating user login timestamp:', error);
+      // Don't throw error here, as it's not critical to the login process
+      return { success: false, error };
+    }
+  },
+  
+  // Get user data from Firestore
+  async getUserFromFirestore(uid) {
+    try {
+      const userDoc = await db.collection('users').doc(uid).get();
+      if (!userDoc.exists) {
+        console.warn(`User document not found in Firestore for uid: ${uid}. Creating one now.`);
+        // Create a basic user document if it doesn't exist yet
+        const basicUserData = {
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          role: 'user',
+          isActive: true
+        };
+        await this.saveUserToFirestore(uid, basicUserData);
+        return basicUserData;
+      }
+      return userDoc.data();
+    } catch (error) {
+      console.error('Error getting user from Firestore:', error);
+      // Return an empty object instead of throwing - this prevents auth failures if Firestore is down
+      return {};
     }
   },
   

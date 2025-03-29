@@ -171,10 +171,21 @@ export const useAuthStore = create<AuthState>()(
           
           set({ isLoading: true, error: null })
           
-          // Register with Firebase
-          const authResult = await registerWithEmailPassword(email, password)
+          // First, try to register with Firebase
+          let authResult: any = null
+          let firebaseError: any = null
           
-          // Try to send registration data to backend
+          try {
+            // Try to register with Firebase
+            authResult = await registerWithEmailPassword(email, password)
+          } catch (error: any) {
+            // Save the Firebase error but don't throw yet - our backend might handle it
+            firebaseError = error
+            console.log('Firebase registration error, trying backend:', error.message)
+          }
+          
+          // Always try to send registration to backend, even if Firebase failed
+          // Our backend will handle existing users properly
           try {
             const response = await fetch('/api/auth/signup', {
               method: 'POST',
@@ -185,7 +196,7 @@ export const useAuthStore = create<AuthState>()(
                 email, 
                 password,
                 displayName: displayName || email.split('@')[0],
-                idToken: authResult.idToken
+                idToken: authResult?.idToken || null,
               }),
             })
             
@@ -194,38 +205,32 @@ export const useAuthStore = create<AuthState>()(
               
               set({ 
                 user: {
-                  id: authResult.user.uid,
-                  name: displayName || email.split('@')[0],
-                  email: email,
-                  avatarUrl: authResult.user.photoURL || undefined
+                  id: data.data.user.uid,
+                  name: data.data.user.displayName || displayName || email.split('@')[0],
+                  email: data.data.user.email || email,
+                  avatarUrl: data.data.user.photoURL || undefined
                 },
-                token: data.data?.token || authResult.idToken,
+                token: data.data.token,
                 isAuthenticated: true,
                 isLoading: false 
               })
               
               toast.success('Account created successfully!')
               return
+            } else {
+              // If backend fails, throw the error
+              const data = await response.json()
+              throw new Error(data.message || 'Signup failed')
             }
           } catch (e) {
-            console.log('Backend integration failed, using Firebase client auth only', e)
-            // We'll continue with client-side auth only
+            // If backend failed and we already had a Firebase error, throw the Firebase error
+            if (firebaseError) {
+              throw firebaseError
+            }
+            
+            // Otherwise throw the backend error
+            throw e
           }
-          
-          // If backend integration failed, still log them in client-side
-          set({ 
-            user: {
-              id: authResult.user.uid,
-              name: displayName || email.split('@')[0],
-              email: email,
-              avatarUrl: authResult.user.photoURL || undefined
-            },
-            token: authResult.idToken,
-            isAuthenticated: true,
-            isLoading: false 
-          })
-          
-          toast.success('Account created successfully! (Client-side only)')
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Registration failed'
