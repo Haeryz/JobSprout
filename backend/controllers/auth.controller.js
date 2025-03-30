@@ -11,7 +11,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 
 export const signup = async (req, res, next) => {
   try {
-    const { email, password, displayName, idToken } = req.body;
+    const { email, password, displayName, idToken, userData } = req.body;
     
     let userRecord;
     
@@ -21,8 +21,18 @@ export const signup = async (req, res, next) => {
       try {
         const decodedToken = await AuthModel.verifyGoogleToken(idToken);
         userRecord = await AuthModel.getUserById(decodedToken.uid);
+        
+        // IMMEDIATELY save the user data to Firestore to ensure it's complete
+        await AuthModel.saveUserToFirestore(userRecord.uid, {
+          email: userRecord.email,
+          displayName: displayName || userRecord.displayName,
+          emailVerified: userRecord.emailVerified,
+          authProvider: 'email',
+          lastLoginAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          ...(userData || {})
+        });
       } catch (error) {
-        console.log('Error verifying token during signup:', error);
         // Continue with normal signup process if token verification fails
       }
     }
@@ -36,7 +46,17 @@ export const signup = async (req, res, next) => {
           if (existingUser) {
             // User already exists - we'll use this user instead of creating a new one
             userRecord = existingUser;
-            console.log(`User with email ${email} already exists, using existing account`);
+            
+            // Update Firestore data for existing user with any new information
+            await AuthModel.saveUserToFirestore(existingUser.uid, {
+              displayName: displayName || existingUser.displayName,
+              email: email,
+              updatedAt: new Date().toISOString(),
+              lastLoginAt: new Date().toISOString(),
+              authProvider: 'email',
+              // Merge any additional user data sent from frontend
+              ...(userData || {})
+            });
           }
         } catch (error) {
           // User doesn't exist, which is what we want for new signups
@@ -51,7 +71,23 @@ export const signup = async (req, res, next) => {
           userRecord = await AuthModel.createUser({
             email,
             password,
-            displayName
+            displayName: displayName || email.split('@')[0], // Use displayName or email username as fallback
+            // Pass any additional user data
+            userData: userData || {}
+          });
+          
+          // Make sure we immediately save the complete user data to Firestore
+          await AuthModel.saveUserToFirestore(userRecord.uid, {
+            email: userRecord.email,
+            displayName: displayName || userRecord.displayName || email.split('@')[0],
+            emailVerified: userRecord.emailVerified,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+            authProvider: 'email',
+            role: 'user',
+            isActive: true,
+            ...(userData || {})
           });
         }
       } catch (error) {
@@ -74,7 +110,6 @@ export const signup = async (req, res, next) => {
       try {
         await AuthModel.sendEmailVerification(email, password);
       } catch (emailError) {
-        console.error('Error sending verification email:', emailError);
         // Continue with signup even if email fails
       }
     }
@@ -133,8 +168,16 @@ export const login = async (req, res, next) => {
     // Check if user exists (will throw error if not found)
     const userRecord = await AuthModel.getUserByEmail(email);
     
-    // Update login timestamp in Firestore
-    await AuthModel.updateUserLoginTimestamp(userRecord.uid);
+    // Update login timestamp and ensure we have complete profile data in Firestore
+    await AuthModel.saveUserToFirestore(userRecord.uid, {
+      email: userRecord.email,
+      displayName: userRecord.displayName || email.split('@')[0],
+      emailVerified: userRecord.emailVerified,
+      lastLoginAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      // Set auth provider if it's not already set
+      authProvider: 'email'
+    });
     
     // Generate a custom token for Firebase Auth
     const customToken = await AuthModel.generateCustomToken(userRecord.uid);
@@ -241,8 +284,6 @@ export const googleLogin = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('Google login error:', error);
-    
     // Handle specific Firebase auth errors
     if (error.code === 'auth/id-token-expired') {
       return res.status(401).json({
