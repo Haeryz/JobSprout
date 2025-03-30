@@ -8,6 +8,7 @@ import { securityMiddleware, errorHandler } from './middleware/security/index.js
 
 // Import routes
 import authRoutes from './routes/auth.routes.js';
+import profileRoutes from './routes/profile.routes.js';
 
 // Load environment variables
 dotenv.config();
@@ -16,8 +17,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Global middleware
-app.use(express.json({ limit: '10kb' })); // Limit request body size
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// Increased size limits to handle PDF uploads (50MB should be sufficient)
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*', // In production, specify your frontend domain
@@ -35,6 +37,10 @@ app.use(securityMiddleware);
 // API Routes - Register routes at BOTH the v1 path and the direct /api/auth path
 app.use('/api/v1/auth', authRoutes); // Original v1 path
 app.use('/api/auth', authRoutes);    // New path for frontend compatibility
+
+// Profile routes
+app.use('/api/v1/profile', profileRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Test route
 app.get('/', (req, res) => {
