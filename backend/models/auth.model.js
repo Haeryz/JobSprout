@@ -30,18 +30,27 @@ export default {
         disabled: false
       });
       
-      // Also save the user to Firestore
-      await this.saveUserToFirestore(userRecord.uid, {
+      // Get additional user data from the request if provided
+      const additionalUserData = userData.userData || {};
+      
+      // Create the final user data to save to Firestore
+      const firestoreUserData = {
         email: userRecord.email,
-        displayName: userRecord.displayName || null,
+        displayName: userData.displayName || userRecord.displayName || null,
         photoURL: userRecord.photoURL || null,
         emailVerified: userRecord.emailVerified,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        // Add any additional fields you want to store for users
+        lastLoginAt: new Date().toISOString(),
+        authProvider: 'email', // Important: Set the auth provider to 'email'
         role: 'user',
-        isActive: true
-      });
+        isActive: true,
+        // Merge any additional user data
+        ...additionalUserData
+      };
+      
+      // Also save the user to Firestore with ALL user data
+      await this.saveUserToFirestore(userRecord.uid, firestoreUserData);
       
       return userRecord;
     } catch (error) {
@@ -158,20 +167,40 @@ export default {
     try {
       const userDoc = await db.collection('users').doc(uid).get();
       if (!userDoc.exists) {
-        console.warn(`User document not found in Firestore for uid: ${uid}. Creating one now.`);
-        // Create a basic user document if it doesn't exist yet
-        const basicUserData = {
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          role: 'user',
-          isActive: true
-        };
-        await this.saveUserToFirestore(uid, basicUserData);
-        return basicUserData;
+        // IMPORTANT: Get the user information from Firebase Auth first
+        try {
+          const userRecord = await auth.getUser(uid);
+          
+          // Create a complete user document with all available data
+          const completeUserData = {
+            email: userRecord.email,
+            displayName: userRecord.displayName || userRecord.email.split('@')[0],
+            photoURL: userRecord.photoURL || null,
+            emailVerified: userRecord.emailVerified,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+            authProvider: 'email',
+            role: 'user',
+            isActive: true
+          };
+          
+          await this.saveUserToFirestore(uid, completeUserData);
+          return completeUserData;
+        } catch (authError) {
+          // Fall back to basic data if we can't get the user from Auth
+          const basicUserData = {
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            role: 'user',
+            isActive: true
+          };
+          await this.saveUserToFirestore(uid, basicUserData);
+          return basicUserData;
+        }
       }
       return userDoc.data();
     } catch (error) {
-      console.error('Error getting user from Firestore:', error);
       // Return an empty object instead of throwing - this prevents auth failures if Firestore is down
       return {};
     }

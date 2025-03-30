@@ -44,10 +44,6 @@ export const signInWithGoogle = async () => {
     // Get full profile information including profile picture
     const user = result.user;
     
-    // Log the complete user object for debugging
-    console.log('Full Firebase user object:', user);
-    console.log('Profile picture URL:', user.photoURL);
-    
     return {
       user,
       idToken: await user.getIdToken()

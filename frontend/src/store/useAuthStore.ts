@@ -68,12 +68,15 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(data.message || 'Login failed')
           }
           
+          // Extract additional fields from backend response
+          const backendUserData = data.data.user || {}
+          
           set({ 
             user: {
               id: authResult.user.uid,
-              name: authResult.user.displayName || email.split('@')[0],
+              name: authResult.user.displayName || backendUserData.displayName || email.split('@')[0],
               email: authResult.user.email || email,
-              avatarUrl: authResult.user.photoURL || undefined
+              avatarUrl: authResult.user.photoURL || backendUserData.photoURL || undefined
             },
             token: data.data?.token || authResult.idToken,
             isAuthenticated: true,
@@ -97,9 +100,6 @@ export const useAuthStore = create<AuthState>()(
           // Authenticate with Google using Firebase
           const authResult = await signInWithGoogle()
           
-          // Log the Firebase user object to see what we're getting
-          console.log('Google auth result:', authResult.user)
-          
           // Try to send the token to our backend
           try {
             const response = await fetch('/api/auth/google', {
@@ -112,8 +112,6 @@ export const useAuthStore = create<AuthState>()(
             
             if (response.ok) {
               const data = await response.json()
-              // Log the backend response to see what we're getting
-              console.log('Backend response:', data)
               
               // Backend integration succeeded
               set({ 
@@ -133,7 +131,6 @@ export const useAuthStore = create<AuthState>()(
               return
             }
           } catch (e) {
-            console.log('Backend integration failed, using Firebase client auth only', e)
             // We'll continue with client-side auth only
           }
           
@@ -181,7 +178,19 @@ export const useAuthStore = create<AuthState>()(
           } catch (error: any) {
             // Save the Firebase error but don't throw yet - our backend might handle it
             firebaseError = error
-            console.log('Firebase registration error, trying backend:', error.message)
+          }
+          
+          // Prepare the user data to send to backend
+          const userData = {
+            email,
+            displayName: displayName || email.split('@')[0],
+            emailVerified: false,
+            authProvider: 'email',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+            role: 'user',
+            isActive: true
           }
           
           // Always try to send registration to backend, even if Firebase failed
@@ -197,12 +206,13 @@ export const useAuthStore = create<AuthState>()(
                 password,
                 displayName: displayName || email.split('@')[0],
                 idToken: authResult?.idToken || null,
+                userData // Send user data directly in the request body
               }),
             })
             
+            const data = await response.json()
+            
             if (response.ok) {
-              const data = await response.json()
-              
               set({ 
                 user: {
                   id: data.data.user.uid,
@@ -219,7 +229,6 @@ export const useAuthStore = create<AuthState>()(
               return
             } else {
               // If backend fails, throw the error
-              const data = await response.json()
               throw new Error(data.message || 'Signup failed')
             }
           } catch (e) {
