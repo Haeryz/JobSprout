@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useProfileStore } from '@/store/useProfileStore'
 import NeonGlow from '@/components/custom/NeonGlow'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,17 +16,16 @@ import { toast } from 'sonner'
 
 const Profile = () => {
   const { user } = useAuthStore()
+  const { profile, isLoading, fetchProfile, updateProfile, deleteResume } = useProfileStore()
 
-  // Profile information
-  const [fullName, setFullName] = useState(user?.name || '')
-  const [email, setEmail] = useState(user?.email || '')
+  // Local state for form
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [desiredJobTitle, setDesiredJobTitle] = useState('')
   const [country, setCountry] = useState('')
   const [experience, setExperience] = useState('')
   const [workPreferences, setWorkPreferences] = useState<string[]>([])
-
-  // Additional information
   const [linkedinUrl, setLinkedinUrl] = useState('')
   const [currentEmployer, setCurrentEmployer] = useState('')
   const [educationLevel, setEducationLevel] = useState('')
@@ -35,8 +35,6 @@ const Profile = () => {
   const [howDidYouFindUs, setHowDidYouFindUs] = useState('')
   const [resume, setResume] = useState<File | null>(null)
   const [additionalInfo, setAdditionalInfo] = useState('')
-
-  // Demographic information
   const [gender, setGender] = useState('')
   const [hispanicLatino, setHispanicLatino] = useState('')
   const [veteranStatus, setVeteranStatus] = useState('')
@@ -44,6 +42,55 @@ const Profile = () => {
   const [workAuthorization, setWorkAuthorization] = useState('')
   const [sponsorshipRequired, setSponsorshipRequired] = useState('')
   const [minimumSalary, setMinimumSalary] = useState(50000)
+  
+  // Resume loading and preview state
+  const [resumeLoading, setResumeLoading] = useState(false)
+  const [hasExistingResume, setHasExistingResume] = useState(false)
+  const [resumeFileName, setResumeFileName] = useState('')
+
+  // Fetch profile data on component mount
+  useEffect(() => {
+    fetchProfile()
+  }, [fetchProfile])
+  
+  // Update local state when profile data loads
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.fullName || user?.name || '')
+      setEmail(profile.email || user?.email || '')
+      setPhone(profile.phone || '')
+      setDesiredJobTitle(profile.desiredJobTitle || '')
+      setCountry(profile.country || '')
+      setExperience(profile.experience || '')
+      setWorkPreferences(profile.workPreferences || [])
+      setLinkedinUrl(profile.linkedinUrl || '')
+      setCurrentEmployer(profile.currentEmployer || '')
+      setEducationLevel(profile.educationLevel || '')
+      setEmploymentTypePreferences(profile.employmentTypePreferences || [])
+      setCity(profile.city || '')
+      setWillingToRelocate(profile.willingToRelocate || false)
+      setHowDidYouFindUs(profile.howDidYouFindUs || '')
+      setAdditionalInfo(profile.additionalInfo || '')
+      setGender(profile.gender || '')
+      setHispanicLatino(profile.hispanicLatino || '')
+      setVeteranStatus(profile.veteranStatus || '')
+      setDisabilityStatus(profile.disabilityStatus || '')
+      setWorkAuthorization(profile.workAuthorization || '')
+      setSponsorshipRequired(profile.sponsorshipRequired || '')
+      setMinimumSalary(profile.minimumSalary || 50000)
+      
+      // Check if user has a resume
+      if (profile.resumeUrl) {
+        setHasExistingResume(true)
+        // Extract filename from URL
+        const fileName = profile.resumeUrl.split('/').pop() || 'Current Resume'
+        setResumeFileName(fileName)
+      } else {
+        setHasExistingResume(false)
+        setResumeFileName('')
+      }
+    }
+  }, [profile, user])
 
   const handleWorkPreferenceChange = (value: string) => {
     setWorkPreferences(prev => {
@@ -67,14 +114,102 @@ const Profile = () => {
 
   const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setResume(e.target.files[0])
+      const file = e.target.files[0]
+      
+      // Validate file type (PDF, DOC, DOCX)
+      const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+      if (!validTypes.includes(file.type)) {
+        toast.error('Please upload a PDF, DOC, or DOCX file')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB')
+        return
+      }
+      
+      setResume(file)
+    }
+  }
+  
+  const handleDeleteResume = async () => {
+    if (confirm('Are you sure you want to delete your resume?')) {
+      await deleteResume()
+      setResume(null)
+      setHasExistingResume(false)
+      setResumeFileName('')
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = error => reject(error)
+    })
+  }
+
+  // Submit form handler
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, you would send this data to your API
-    toast.success('Profile saved successfully')
+    
+    try {
+      // Create profile data object
+      const profileData = {
+        fullName,
+        email,
+        phone,
+        desiredJobTitle,
+        country,
+        experience,
+        workPreferences,
+        linkedinUrl,
+        currentEmployer,
+        educationLevel,
+        employmentTypePreferences,
+        city,
+        willingToRelocate,
+        howDidYouFindUs,
+        additionalInfo,
+        gender,
+        hispanicLatino,
+        veteranStatus,
+        disabilityStatus,
+        workAuthorization,
+        sponsorshipRequired,
+        minimumSalary
+      }
+      
+      let resumeBase64 = null
+      
+      // If a new resume file was selected, convert it to base64
+      if (resume) {
+        setResumeLoading(true)
+        resumeBase64 = await convertFileToBase64(resume)
+      }
+      
+      // Update profile in the backend
+      await updateProfile(profileData, resumeBase64)
+      
+      setResumeLoading(false)
+      
+      // If a new resume was uploaded, update UI to show it
+      if (resume) {
+        setHasExistingResume(true)
+        setResumeFileName(resume.name)
+      }
+    } catch (error) {
+      setResumeLoading(false)
+      console.error('Error saving profile:', error)
+    }
+  }
+
+  const openResume = () => {
+    if (profile?.resumeSignedUrl) {
+      window.open(profile.resumeSignedUrl, '_blank')
+    }
   }
 
   return (
@@ -324,8 +459,36 @@ const Profile = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="resume">Upload Resume</Label>
-                <Input id="resume" type="file" onChange={handleResumeChange} />
+                <Label htmlFor="resume">Resume</Label>
+                {hasExistingResume ? (
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                    <div className="flex-grow p-2 border rounded-md flex justify-between items-center">
+                      <span className="text-sm truncate max-w-xs">{resumeFileName}</span>
+                      <div className="flex gap-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={openResume}
+                        >
+                          View
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={handleDeleteResume}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500">or</div>
+                    <Input id="resume" type="file" onChange={handleResumeChange} />
+                  </div>
+                ) : (
+                  <Input id="resume" type="file" onChange={handleResumeChange} />
+                )}
                 <p className="text-xs text-gray-500">PDF, DOC, or DOCX files only. Maximum size 5MB.</p>
               </div>
 
@@ -490,8 +653,9 @@ const Profile = () => {
             type="submit" 
             className="w-full sm:w-auto bg-gradient-to-b from-[#4ADE80] to-[#22C55E] text-white 
             hover:from-[#22C55E] hover:to-[#22C55E]"
+            disabled={isLoading || resumeLoading}
           >
-            Save Profile
+            {isLoading || resumeLoading ? 'Saving...' : 'Save Profile'}
           </Button>
         </NeonGlow>
       </form>
