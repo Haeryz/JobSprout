@@ -3,9 +3,19 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { securityMiddleware, errorHandler } from '../middleware/security/index.js';
+import dotenv from 'dotenv';
 
-// Test JWT Secret (should match the one in controllers)
-const JWT_SECRET = process.env.JWT_SECRET || 'jobsprout-secret-key';
+// Load environment variables
+dotenv.config();
+
+// Get JWT Secret from environment variables (no fallback for security)
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Ensure JWT_SECRET is defined for tests
+if (!JWT_SECRET) {
+  console.error('JWT_SECRET environment variable is required for tests');
+  process.exit(1);
+}
 
 // Create a test app with mocked firebase auth
 const app = express();

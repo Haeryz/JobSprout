@@ -5,9 +5,15 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-// JWT Secret (should be in .env)
-const JWT_SECRET = process.env.JWT_SECRET || 'jobsprout-secret-key';
+// JWT Secret from environment variable (no fallback for security reasons)
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
+
+// Validate that JWT_SECRET is defined
+if (!JWT_SECRET) {
+  console.error('JWT_SECRET is not defined in environment variables. Server cannot start securely.');
+  process.exit(1); // Exit the application if JWT_SECRET is missing
+}
 
 export const signup = async (req, res, next) => {
   try {
