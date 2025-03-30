@@ -78,15 +78,12 @@ const Profile = () => {
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-6">Profile</h1>
-      <p className="text-gray-500 dark:text-gray-400 mb-8">Update your profile details and preferences</p>
-
+    <div className="p-6 max-w-4xl mx-auto">
       <form onSubmit={handleSubmit}>
         {/* Profile Information Section */}
         <Card className="mb-8 border-gray-200 dark:border-gray-700">
           <CardHeader>
-            <CardTitle>Profile Information</CardTitle>
+            <CardTitle className="text-[#22C55E] dark:text-[#4ADE80]">Profile Information</CardTitle>
             <CardDescription>Your basic information and work preferences</CardDescription>
           </CardHeader>
           <CardContent>
@@ -195,7 +192,7 @@ const Profile = () => {
         {/* Additional Information Section */}
         <Card className="mb-8 border-gray-200 dark:border-gray-700">
           <CardHeader>
-            <CardTitle>Additional Information</CardTitle>
+            <CardTitle className="text-[#22C55E] dark:text-[#4ADE80]">Additional Information</CardTitle>
             <CardDescription>This information helps us better match you with opportunities</CardDescription>
           </CardHeader>
           <CardContent>
@@ -349,7 +346,7 @@ const Profile = () => {
         {/* Demographic Information Section */}
         <Card className="mb-8 border-gray-200 dark:border-gray-700">
           <CardHeader>
-            <CardTitle>Demographic Information</CardTitle>
+            <CardTitle className="text-[#22C55E] dark:text-[#4ADE80]">Demographic Information</CardTitle>
             <CardDescription>This information is optional and used for diversity and inclusion purposes only</CardDescription>
           </CardHeader>
           <CardContent>
