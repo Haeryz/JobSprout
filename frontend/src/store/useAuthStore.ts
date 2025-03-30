@@ -5,7 +5,8 @@ import {
   signInWithGoogle, 
   loginWithEmailPassword, 
   registerWithEmailPassword, 
-  logoutUser 
+  logoutUser,
+  getIdToken
 } from '@/config/firebase'
 
 // Define types for our auth store
@@ -29,12 +30,13 @@ interface AuthState {
   signup: (email: string, password: string, confirmPassword: string, displayName?: string) => Promise<void>
   logout: () => void
   clearError: () => void
+  refreshToken: () => Promise<string | null>
 }
 
 // Create the auth store with persistence
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
@@ -267,6 +269,32 @@ export const useAuthStore = create<AuthState>()(
       
       // Clear error
       clearError: () => set({ error: null }),
+
+      // New function to refresh the token
+      refreshToken: async () => {
+        try {
+          // Only try to refresh if we're authenticated
+          if (!get().isAuthenticated) {
+            return null;
+          }
+
+          // Get a fresh token from Firebase
+          const freshToken = await getIdToken();
+          
+          if (freshToken) {
+            // Update the token in the store
+            set({ token: freshToken });
+            return freshToken;
+          }
+          
+          return get().token;
+        } catch (error) {
+          console.error('Failed to refresh token:', error);
+          // If we can't refresh the token, we might need to re-authenticate
+          // Just return the existing token and let the API call handle any auth errors
+          return get().token;
+        }
+      }
     }),
     {
       name: 'jobsprout-auth-storage', // name for the localStorage key
@@ -279,8 +307,9 @@ export const useAuthStore = create<AuthState>()(
   )
 )
 
-// Utility for using auth token in requests
-export const getAuthHeader = () => {
-  const token = useAuthStore.getState().token
-  return token ? { 'Authorization': `Bearer ${token}` } : {}
+// Updated utility for using auth token in requests
+export const getAuthHeader = async () => {
+  // Try to refresh the token first
+  const token = await useAuthStore.getState().refreshToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
 }

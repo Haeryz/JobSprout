@@ -36,6 +36,23 @@ googleProvider.setCustomParameters({
   access_type: 'offline'    // Get refresh token
 });
 
+// Get a fresh ID token from the current user
+export const getIdToken = async (forceRefresh = true) => {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.warn('No user is signed in');
+      return null;
+    }
+    
+    // Force refresh ensures we get a fresh token
+    return await currentUser.getIdToken(forceRefresh);
+  } catch (error) {
+    console.error('Error getting fresh ID token:', error);
+    return null;
+  }
+};
+
 // Firebase auth functions
 export const signInWithGoogle = async () => {
   try {
