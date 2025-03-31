@@ -8,6 +8,7 @@ import JobSearch from '@/pages/JobSearch'
 import Profile from '@/pages/Profile'
 import SignIn from '@/pages/SignIn'
 import SignUp from '@/pages/SignUp'
+import Subscription from '@/pages/Subscription'
 
 // This function would normally check if the user is authenticated
 // For development, it always returns true
@@ -86,6 +87,10 @@ const routes = [
       {
         path: "profile",
         element: <Profile />
+      },
+      {
+        path: "subscription",
+        element: <Subscription />
       }
     ]
   },
