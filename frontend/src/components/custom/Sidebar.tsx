@@ -38,7 +38,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar"
 
@@ -177,7 +176,7 @@ const AppSidebar = () => {
                       </div>
                     )}
                     <Avatar>
-                      <AvatarImage src={user?.avatarUrl} />
+                      <AvatarImage src={user?.avatarUrl} referrerPolicy="no-referrer" />
                       <AvatarFallback>{user?.name?.charAt(0) || 'U'}{user?.name?.split(' ')[1]?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     {state === "expanded" && (
