@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { toast } from 'sonner'
-import { useAuthStore, getAuthHeader } from './useAuthStore'
+import { getAuthHeader } from './useAuthStore'
 
 // Define types for profile data
 interface Profile {
@@ -216,7 +216,7 @@ export const useProfileStore = create<ProfileState>()(
             throw new Error(errorData.message || 'Failed to delete resume')
           }
           
-          const data = await response.json()
+          // const data = await response.json()
           
           // Update the profile to remove resume URL
           const currentProfile = get().profile
