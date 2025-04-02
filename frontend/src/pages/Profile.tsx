@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useProfileStore } from '@/store/useProfileStore'
 import NeonGlow from '@/components/custom/NeonGlow'

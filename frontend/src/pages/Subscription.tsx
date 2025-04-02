@@ -59,7 +59,7 @@ const Subscription = () => {
   }
   
 
-  const monthlyPrice = isAnnual ? pricing.premium.annual / 12 : pricing.premium.monthly;
+  // const monthlyPrice = isAnnual ? pricing.premium.annual / 12 : pricing.premium.monthly;
   
   const fadeInUp = {
     hidden: { opacity: 0, y: 20 },

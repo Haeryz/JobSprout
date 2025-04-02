@@ -82,7 +82,7 @@ const AppSidebar = () => {
 
   return (
     <Sidebar 
-      className="border-r border-sidebar-border relative"
+      className="border-r border-sidebar-border relative h-screen fixed left-0 top-0"
       collapsible="icon"
     >
       {/* Toggle sidebar button - positioned at the right edge of sidebar */}
