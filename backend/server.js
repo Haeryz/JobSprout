@@ -9,6 +9,7 @@ import { securityMiddleware, errorHandler } from './middleware/security/index.js
 // Import routes
 import authRoutes from './routes/auth.routes.js';
 import profileRoutes from './routes/profile.routes.js';
+import jobsRoutes from './routes/jobs.routes.js';
 
 // Load environment variables
 dotenv.config();
@@ -41,6 +42,10 @@ app.use('/api/auth', authRoutes);    // New path for frontend compatibility
 // Profile routes
 app.use('/api/v1/profile', profileRoutes);
 app.use('/api/profile', profileRoutes);
+
+// Jobs routes
+app.use('/api/v1/jobs', jobsRoutes);
+app.use('/api/jobs', jobsRoutes);
 
 // Test route
 app.get('/', (req, res) => {
