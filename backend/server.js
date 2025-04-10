@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import compression from 'compression';
 import { db, firebaseApp } from './config/database.js';
 import { securityMiddleware, errorHandler } from './middleware/security/index.js';
 
@@ -16,6 +17,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Compress all responses
+app.use(compression());
 
 // Global middleware
 // Increased size limits to handle PDF uploads (50MB should be sufficient)
