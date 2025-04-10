@@ -6,8 +6,10 @@ import {
   loginWithEmailPassword, 
   registerWithEmailPassword, 
   logoutUser,
-  getIdToken
+  getIdToken,
+  auth
 } from '@/config/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 
 // Define types for our auth store
 interface User {
@@ -23,6 +25,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
+  authInitialized: boolean // Track if Firebase auth has initialized
   
   // Auth actions
   login: (email: string, password: string) => Promise<void>
@@ -31,6 +34,7 @@ interface AuthState {
   logout: () => void
   clearError: () => void
   refreshToken: () => Promise<string | null>
+  initAuth: () => void
 }
 
 // Create the auth store with persistence
@@ -42,6 +46,44 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      authInitialized: false, // Initialize as false
+      
+      // Initialize auth state by checking Firebase
+      initAuth: () => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (firebaseUser) {
+            // User is signed in, update token
+            try {
+              const idToken = await firebaseUser.getIdToken(true);
+              set({ 
+                token: idToken,
+                isAuthenticated: true,
+                authInitialized: true // Mark as initialized
+              });
+            } catch (error) {
+              console.error('Error refreshing token during init:', error);
+              set({ authInitialized: true }); // Still mark as initialized despite error
+            }
+          } else if (get().isAuthenticated) {
+            // Firebase says not authenticated, but store thinks we are
+            // This is a mismatch, so reset the auth state
+            set({ 
+              user: null,
+              token: null,
+              isAuthenticated: false,
+              error: 'Session expired. Please sign in again.',
+              authInitialized: true // Mark as initialized
+            });
+            toast.error('Session expired. Please sign in again.');
+          } else {
+            // User is not authenticated, which matches our store state
+            set({ authInitialized: true }); // Mark as initialized
+          }
+        });
+        
+        // Return unsubscribe function
+        return unsubscribe;
+      },
       
       // Login with email and password
       login: async (email: string, password: string) => {
@@ -273,7 +315,12 @@ export const useAuthStore = create<AuthState>()(
       // New function to refresh the token
       refreshToken: async () => {
         try {
-          // Only try to refresh if we're authenticated
+          // Only try to refresh if auth is initialized and we're authenticated
+          if (!get().authInitialized) {
+            console.log('Auth not yet initialized, waiting...');
+            return get().token;
+          }
+          
           if (!get().isAuthenticated) {
             return null;
           }
@@ -285,13 +332,24 @@ export const useAuthStore = create<AuthState>()(
             // Update the token in the store
             set({ token: freshToken });
             return freshToken;
+          } else {
+            // If Firebase reports no current user, but our store thinks we're authenticated,
+            // this is likely because the Firebase session expired
+            if (auth.currentUser === null) {
+              // Reset auth state
+              set({ 
+                isAuthenticated: false,
+                token: null,
+                error: 'Session expired. Please sign in again.'
+              });
+              toast.error('Session expired. Please sign in again.');
+              return null;
+            }
           }
           
           return get().token;
         } catch (error) {
           console.error('Failed to refresh token:', error);
-          // If we can't refresh the token, we might need to re-authenticate
-          // Just return the existing token and let the API call handle any auth errors
           return get().token;
         }
       }
@@ -309,7 +367,16 @@ export const useAuthStore = create<AuthState>()(
 
 // Updated utility for using auth token in requests
 export const getAuthHeader = async () => {
-  // Try to refresh the token first
+  const { authInitialized } = useAuthStore.getState();
+  
+  // Wait for auth to initialize (with timeout to prevent infinite waiting)
+  if (!authInitialized) {
+    console.log('Auth not initialized, waiting before making API request...');
+    // Simple wait to see if auth initializes within a short time
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  
+  // Try to refresh the token
   const token = await useAuthStore.getState().refreshToken();
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
