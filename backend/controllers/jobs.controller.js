@@ -6,6 +6,7 @@ export default {
   async searchJobs(req, res) {
     try {
       const userId = req.user.uid;
+      const startTime = Date.now();
       
       // Get user's profile to use preferences in search
       const profileResult = await profileModel.getProfile(userId);
@@ -24,8 +25,17 @@ export default {
         });
       }
 
-      // Log the jobs data before sending response
-      console.log('Jobs data:', JSON.stringify(result.data, null, 2));
+      // Calculate response time for logging
+      const responseTime = Date.now() - startTime;
+      console.log(`Jobs search completed in ${responseTime}ms${result.cached ? ' (cached)' : ''}`);
+      
+      // Add cache headers if the result was cached
+      if (result.cached) {
+        res.setHeader('X-Cache', 'HIT');
+        if (result.stale) {
+          res.setHeader('X-Cache-Status', 'stale');
+        }
+      }
       
       return res.status(200).json({
         status: 'success',
@@ -67,8 +77,13 @@ export default {
   async getUserApplications(req, res) {
     try {
       const userId = req.user.uid;
+      const startTime = Date.now();
       
       const result = await jobsModel.getUserApplications(userId);
+      
+      // Calculate response time for logging
+      const responseTime = Date.now() - startTime;
+      console.log(`Applications fetch completed in ${responseTime}ms`);
 
       return res.status(200).json({
         status: 'success',
