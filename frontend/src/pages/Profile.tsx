@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { toast } from 'sonner'
 
 const Profile = () => {
-  const { user } = useAuthStore()
+  const { user, authInitialized } = useAuthStore()
   const { profile, isLoading, fetchProfile, updateProfile, deleteResume } = useProfileStore()
 
   // Local state for form
@@ -48,10 +48,12 @@ const Profile = () => {
   const [hasExistingResume, setHasExistingResume] = useState(false)
   const [resumeFileName, setResumeFileName] = useState('')
 
-  // Fetch profile data on component mount
+  // Fetch profile data when auth is initialized
   useEffect(() => {
-    fetchProfile()
-  }, [fetchProfile])
+    if (authInitialized) {
+      fetchProfile()
+    }
+  }, [fetchProfile, authInitialized])
   
   // Update local state when profile data loads
   useEffect(() => {
