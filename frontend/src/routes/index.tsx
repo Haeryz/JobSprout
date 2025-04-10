@@ -9,24 +9,14 @@ import Profile from '@/pages/Profile'
 import SignIn from '@/pages/SignIn'
 import SignUp from '@/pages/SignUp'
 import Subscription from '@/pages/Subscription'
+import { useAuthStore } from '@/store/useAuthStore'
 
-// This function would normally check if the user is authenticated
-// For development, it always returns true
-const isAuthenticated = () => {
-  // TODO: Implement actual authentication check
-  return true // Always return true during development
-}
-
-// This would be a proper auth guard component
-// Currently allowing all access for development
+// AuthGuard component to protect routes
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-  const authenticated = isAuthenticated()
+  const { isAuthenticated } = useAuthStore()
   
-  // For development, we're allowing access to all routes
-  // Later this will redirect unauthenticated users to login
-  if (!authenticated) {
-    // Uncomment this when ready to implement authentication
-    // return <Navigate to="/auth/sign-in" replace />
+  if (!isAuthenticated) {
+    return <Navigate to="/auth/sign-in" replace />
   }
   
   return <>{children}</>
