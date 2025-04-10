@@ -7,41 +7,115 @@ dotenv.config();
 const JSEARCH_API_KEY = process.env.JSEARCH_API_KEY;
 const JSEARCH_API_URL = 'https://jsearch.p.rapidapi.com/search';
 
+// Cache job search results to improve performance
+const jobSearchCache = {
+  data: null,
+  timestamp: null,
+  expiryTime: 30 * 60 * 1000 // 30 minutes in milliseconds
+};
+
+// Function to trim job data to only necessary fields to reduce payload size
+const trimJobData = (job) => {
+  return {
+    job_id: job.job_id,
+    job_title: job.job_title,
+    employer_name: job.employer_name,
+    employer_logo: job.employer_logo,
+    job_city: job.job_city,
+    job_country: job.job_country,
+    job_employment_type: job.job_employment_type,
+    // Trim job description to 500 characters to reduce payload
+    job_description: job.job_description ? job.job_description.substring(0, 500) + (job.job_description.length > 500 ? '...' : '') : '',
+    job_google_link: job.job_google_link,
+    job_apply_link: job.job_apply_link,
+    // Include only essential fields
+    job_location: job.job_location,
+    job_posted_at: job.job_posted_at
+  };
+};
+
 export default {
   // Search for jobs using JSearch API
   async searchJobs(query = 'marketing', location = '') {
     try {
+      // Check if we have valid cached data
+      const now = Date.now();
+      if (jobSearchCache.data && jobSearchCache.timestamp && 
+          now - jobSearchCache.timestamp < jobSearchCache.expiryTime) {
+        console.log('Returning cached job data');
+        return {
+          success: true,
+          data: jobSearchCache.data,
+          cached: true
+        };
+      }
+      
       // For development, always use 'marketing' as the search query
       const searchQuery = 'marketing';
-      console.log('Development mode: Using fixed search query:', searchQuery);
+      // Reduced logging for performance
       
-      const response = await axios.get(JSEARCH_API_URL, {
-        headers: {
-          'X-RapidAPI-Key': JSEARCH_API_KEY,
-          'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
-        },
-        params: {
-          query: searchQuery,
-          page: '1',
-          num_pages: '1',
-          date_posted: 'month' // Get jobs posted in the last month
-        }
-      });
-
-      console.log('Raw API response:', JSON.stringify(response.data, null, 2));
-
-      // Limit to 5 jobs to conserve API calls
-      const jobs = response.data.data.slice(0, 5);
+      console.time('API request time');
       
-      console.log('Processed jobs data:', JSON.stringify(jobs, null, 2));
+      // Set a longer timeout to abort hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      
+      try {
+        const response = await axios.get(JSEARCH_API_URL, {
+          headers: {
+            'X-RapidAPI-Key': JSEARCH_API_KEY,
+            'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
+          },
+          params: {
+            query: searchQuery,
+            page: '1',
+            num_pages: '1',
+            date_posted: 'month' // Get jobs posted in the last month
+          },
+          timeout: 5000, // Set a 5 second timeout to prevent long hanging requests
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        console.timeEnd('API request time');
 
+        // Limit to 5 jobs to conserve API calls and trim the data
+        const jobs = response.data.data.slice(0, 5).map(trimJobData);
+        
+        // Update cache
+        jobSearchCache.data = jobs;
+        jobSearchCache.timestamp = now;
+
+        return {
+          success: true,
+          data: jobs
+        };
+      } catch (axiosError) {
+        clearTimeout(timeoutId);
+        throw axiosError;
+      }
+    } catch (error) {
+      // Log only essential error information
+      console.error('Error searching jobs:', error.message);
+      
+      // If we have cached data, return it even if it's expired when an error occurs
+      if (jobSearchCache.data) {
+        console.log('Returning stale cached data due to API error');
+        return {
+          success: true,
+          data: jobSearchCache.data,
+          cached: true,
+          stale: true
+        };
+      }
+      
+      // If we don't have cached data and the API failed, return empty results instead of failing
       return {
         success: true,
-        data: jobs
+        data: [],
+        error: true,
+        message: 'Failed to fetch jobs, please try again later'
       };
-    } catch (error) {
-      console.error('Error searching jobs:', error.response ? error.response.data : error.message);
-      throw error;
     }
   },
 
@@ -78,7 +152,7 @@ export default {
         }
       };
     } catch (error) {
-      console.error('Error tracking job application:', error);
+      console.error('Error tracking job application:', error.message);
       throw error;
     }
   },
@@ -106,14 +180,12 @@ export default {
         return new Date(b.appliedAt) - new Date(a.appliedAt);
       });
 
-      console.log('Retrieved applications:', JSON.stringify(applications, null, 2));
-
       return {
         success: true,
         data: applications
       };
     } catch (error) {
-      console.error('Error getting user applications:', error);
+      console.error('Error getting user applications:', error.message);
       throw error;
     }
   },
@@ -131,7 +203,7 @@ export default {
         data: { status }
       };
     } catch (error) {
-      console.error('Error updating application status:', error);
+      console.error('Error updating application status:', error.message);
       throw error;
     }
   }
